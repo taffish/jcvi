@@ -1,11 +1,11 @@
-FROM python:3.12-slim-bookworm AS builder
+FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS builder
 
-ARG JCVI_VERSION=1.6.6
-ARG JCVI_COMMIT=846be3c9996873ea9b13cfbe2d6998d87739eac2
-ARG JCVI_SDIST_URL=https://files.pythonhosted.org/packages/f2/a2/030e2c1993a8729f152e2ae7d0ecbfe381c9e8cade9c9f7620d1c7e4481b/jcvi-1.6.6.tar.gz
-ARG JCVI_SDIST_SHA256=81f17efbb02b38209bff6f340345078b8c52adde544b6bb044d169e7c19e3e1f
-ARG JCVI_CITATION_URL=https://raw.githubusercontent.com/tanghaibao/jcvi/v1.6.6/CITATION.cff
-ARG JCVI_CITATION_SHA256=6b92d2e94bc39437c525ccae965d0e494140dab3653ce601e87f208b5bc3552b
+ARG JCVI_VERSION=1.6.7
+ARG JCVI_COMMIT=e10b8844a7539bad0a9de31f2bfe93b3c4fbd29c
+ARG JCVI_SDIST_URL=https://files.pythonhosted.org/packages/2c/80/17abbdb2e5abfd4ee5c617bdb3cd6ebf25ae73852a438b688d661f1605e7/jcvi-1.6.7.tar.gz
+ARG JCVI_SDIST_SHA256=6fb782769ad098103761687140d6ac16a601280f640cd4b242af559a70e3dbd3
+ARG JCVI_CITATION_URL=https://raw.githubusercontent.com/tanghaibao/jcvi/v1.6.7/CITATION.cff
+ARG JCVI_CITATION_SHA256=09b19c74b446098b5e2782fc932922527ea09fedf3ec8d54d257e21ff4ed15b8
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -32,6 +32,8 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
 
 WORKDIR /tmp/build
+COPY docker/constraints.txt /opt/jcvi/constraints.txt
+ENV PIP_CONSTRAINT=/opt/jcvi/constraints.txt
 
 RUN --mount=type=cache,target=/root/.cache/pip set -eux; \
     curl --retry 5 --retry-delay 2 --retry-all-errors -fsSL "${JCVI_SDIST_URL}" -o jcvi.tar.gz; \
@@ -39,13 +41,14 @@ RUN --mount=type=cache,target=/root/.cache/pip set -eux; \
     mkdir -p /tmp/jcvi-src; \
     tar -xzf jcvi.tar.gz -C /tmp/jcvi-src --strip-components=1; \
     python -m venv --copies /opt/jcvi/venv; \
-    /opt/jcvi/venv/bin/python -m pip install --root-user-action=ignore ./jcvi.tar.gz; \
-    /opt/jcvi/venv/bin/python -c 'import importlib.metadata as md; assert md.version("jcvi") == "1.6.6"'; \
+    /opt/jcvi/venv/bin/python -m pip install --root-user-action=ignore --report /tmp/jcvi-install-report.json ./jcvi.tar.gz; \
+    /opt/jcvi/venv/bin/python -c 'import importlib.metadata as md; assert md.version("jcvi") == "1.6.7"'; \
     mkdir -p \
         /opt/jcvi/share/doc/jcvi \
         /opt/jcvi/share/licenses/jcvi \
         /opt/jcvi/share/sources \
         /opt/jcvi/share/testdata; \
+    cp /tmp/jcvi-install-report.json /opt/jcvi/share/doc/jcvi/install-report.json; \
     cp /tmp/jcvi-src/README.md /opt/jcvi/share/doc/jcvi/README.md; \
     cp /tmp/jcvi-src/pyproject.toml /opt/jcvi/share/doc/jcvi/pyproject.toml; \
     cp /tmp/jcvi-src/LICENSE /opt/jcvi/share/licenses/jcvi/LICENSE; \
@@ -64,6 +67,10 @@ RUN --mount=type=cache,target=/root/.cache/pip set -eux; \
       printf 'citation_sha256=%s\n' "${JCVI_CITATION_SHA256}"; \
     } > /opt/jcvi/share/doc/jcvi/source.txt
 
+ARG TARGETARCH
+COPY docker/install-sam.sh /opt/jcvi/share/doc/jcvi/install-sam.sh
+RUN --mount=type=cache,target=/root/.cache/pip TARGETARCH="${TARGETARCH}" bash /opt/jcvi/share/doc/jcvi/install-sam.sh
+
 RUN /opt/jcvi/venv/bin/python <<'PY' > /opt/jcvi/share/doc/jcvi/pip-freeze.txt
 import importlib.metadata as md
 
@@ -77,8 +84,11 @@ for _, row in sorted(rows):
 PY
 
 COPY docker/jcvi-smoke.sh /opt/jcvi/share/testdata/jcvi-smoke.sh
+COPY docker/smoke.py docker/resource-regression.py docker/test_chromosome.py docker/TESTDATA.md /opt/jcvi/share/testdata/
+COPY docker/licenses/jcvi-BSD-2-Clause.txt /opt/jcvi/share/testdata/licenses/jcvi-BSD-2-Clause.txt
 
 RUN set -eux; \
+    cmp /opt/jcvi/share/testdata/licenses/jcvi-BSD-2-Clause.txt /opt/jcvi/share/licenses/jcvi/LICENSE; \
     chmod 0755 /opt/jcvi/share/testdata/jcvi-smoke.sh; \
     site_packages="$(/opt/jcvi/venv/bin/python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"; \
     test -f "$site_packages/mysql/vendor/plugin/authentication_kerberos_client.so"; \
@@ -95,24 +105,26 @@ RUN set -eux; \
     rm -rf "$site_packages/goatools/test_data"; \
     find "$site_packages" -depth -type d \( -name test -o -name tests \) -exec rm -rf '{}' +; \
     find "$site_packages" -type f -name '*.a' -delete; \
+    rm -rf "$site_packages/torch/include" "$site_packages/torch/share/cmake"; \
+    rm -f "$site_packages/torch/bin/protoc" "$site_packages/torch/bin/protoc-3.13.0.0"; \
+    printf 'sam_runtime=eager_cpu; torch C++ headers, CMake and protoc are excluded; torch_shm_manager retained\n' >> /opt/jcvi/share/doc/jcvi/source.txt; \
     rm -rf "$site_packages/pip" "$site_packages"/pip-*.dist-info; \
     rm -f /opt/jcvi/venv/bin/pip /opt/jcvi/venv/bin/pip3 /opt/jcvi/venv/bin/pip3.12; \
     find /opt/jcvi/venv -type d -name '__pycache__' -prune -exec rm -rf '{}' +; \
     find /opt/jcvi/venv -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete; \
     rm -rf /root/.cache /tmp/build /tmp/jcvi-src
 
-FROM python:3.12-slim-bookworm
+FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONNOUSERSITE=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV MPLBACKEND=Agg
-ENV MPLCONFIGDIR=/tmp/matplotlib
-ENV XDG_CACHE_HOME=/tmp/xdg-cache
 ENV PATH=/opt/jcvi/venv/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
 
 RUN set -eux; \
+    sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources; \
     for attempt in 1 2 3 4 5; do \
       if apt-get -o Acquire::Retries=5 update \
        && apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
@@ -133,6 +145,8 @@ RUN set -eux; \
             grep \
             gzip \
             imagemagick \
+            last-align \
+            ncbi-blast+ \
             libgomp1 \
             libmagic1 \
             procps \
@@ -154,20 +168,26 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
 
 COPY --from=builder /opt/jcvi /opt/jcvi
+COPY --chmod=0755 docker/jcvi-resources.py /usr/local/bin/jcvi-resources
+COPY docker/apply-ontology-guard.py /opt/jcvi/share/doc/jcvi/apply-ontology-guard.py
 
 RUN set -eux; \
+    python /opt/jcvi/share/doc/jcvi/apply-ontology-guard.py; \
+    printf 'ontology_implicit_download=false\nontology_guard=apply-ontology-guard.py\n' >> /opt/jcvi/share/doc/jcvi/source.txt; \
     dpkg-query -W -f='${binary:Package}\t${Version}\n' | sort > /opt/jcvi/share/doc/jcvi/system-packages.tsv; \
-    jcvi --version 2>&1 | grep -Fx 'jcvi 1.6.6' >/dev/null; \
+    jcvi --version 2>&1 | grep -Fx 'jcvi 1.6.7' >/dev/null; \
     jcvi --help 2>&1 | grep -F 'Run jcvi modules' >/dev/null; \
     jcvi formats.fasta 2>&1 | grep -F 'Remove irregular chars in FASTA seqs' >/dev/null; \
     jcvi compara.synteny 2>&1 | grep -F 'Get anchor list using single-linkage algorithm' >/dev/null; \
-    python -c 'import importlib.metadata as md; import genomepy; import mysql.connector; import pyBigWig; import pybedtools; import pysam; import jcvi; import jcvi.algorithms; import jcvi.annotation; import jcvi.apps; import jcvi.assembly; import jcvi.compara; import jcvi.formats; import jcvi.graphics; import jcvi.projects; import jcvi.utils; import jcvi.variation; import jcvi.assembly.chic; import jcvi.formats.cblast; assert md.version("jcvi") == "1.6.6"; print(jcvi.__version__)' | grep -Fx '1.6.6' >/dev/null; \
+    python -c 'import importlib.metadata as md; import genomepy; import mysql.connector; import pyBigWig; import pybedtools; import pysam; import jcvi; import jcvi.algorithms; import jcvi.annotation; import jcvi.apps; import jcvi.assembly; import jcvi.compara; import jcvi.formats; import jcvi.graphics; import jcvi.projects; import jcvi.utils; import jcvi.variation; import jcvi.assembly.chic; import jcvi.formats.cblast; assert md.version("jcvi") == "1.6.7"; print(jcvi.__version__)' | grep -Fx '1.6.7' >/dev/null; \
     /opt/jcvi/share/testdata/jcvi-smoke.sh buildtime; \
-    find /opt/jcvi/venv -type f -name '*.so' -print0 | xargs -0 -r ldd > /tmp/jcvi-ldd.txt 2>&1 || true; \
+    python -c 'import torch, torchvision, segment_anything; assert torch.__version__ == "2.8.0+cpu"; assert torchvision.__version__.split("+")[0] == "0.23.0"'; \
+    # import torch preloads its own libraries (arm64 also uses torch.libs); static audit only. \
+    find /opt/jcvi/venv -type f -name '*.so' -print0 | xargs -0 -r env LD_LIBRARY_PATH=/opt/jcvi/venv/lib/python3.12/site-packages/torch/lib:/opt/jcvi/venv/lib/python3.12/site-packages/torch.libs ldd > /tmp/jcvi-ldd.txt 2>&1 || true; \
     if grep -F 'not found' /tmp/jcvi-ldd.txt; then exit 1; fi; \
     rm -rf /root/.cache /tmp/jcvi-* /tmp/matplotlib /tmp/xdg-cache
 
-WORKDIR /root
+WORKDIR /work
 
 ENV TAFFISH_ENV=TAFFISH
 ENV TAFFISH_NAME=jcvi

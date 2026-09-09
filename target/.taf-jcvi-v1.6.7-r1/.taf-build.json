@@ -1,0 +1,6 @@
+{
+  "artifact": "taf-jcvi-v1.6.7-r1",
+  "schema": "taffish.build/v1",
+  "source_sha256": "fdd996c78ebadbed292c14005072e789ff7751b3e43ca2daf087878d48e44c80",
+  "wrapper_sha256": "b12d756be8c6bdb9aa4f2c529b12c99a37d8fb72959beccd75bf84a4734b23c0"
+}

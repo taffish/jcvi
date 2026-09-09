@@ -1,0 +1,49 @@
+[package]
+name = "jcvi"
+kind = "tool"
+version = "1.6.7"
+release = 1
+license = "Apache-2.0"
+main = "src/main.taf"
+
+[repository]
+url = "https://github.com/taffish/jcvi"
+
+[command]
+name = "taf-jcvi"
+
+[runtime]
+pipe = true
+command_mode = true
+
+[container]
+image = "ghcr.io/taffish/jcvi:1.6.7-r1"
+dockerfile = "docker/Dockerfile"
+build_platforms = "linux/amd64,linux/arm64"
+
+[meta]
+domain = "bio"
+categories = ["comparative-genomics", "genome-assembly", "genome-annotation", "synteny", "bioinformatics-utilities"]
+keywords = ["JCVI", "MCscan", "ALLMAPS", "synteny", "comparative genomics", "genome assembly", "genome annotation", "FASTA", "BED", "GFF", "genomics graphics"]
+description = "JCVI 1.6.7 Python toolkit for genome assembly, annotation, comparative genomics, file-format manipulation, synteny analysis, and genomics graphics."
+
+[upstream]
+name = "JCVI"
+type = "github"
+repo = "tanghaibao/jcvi"
+homepage = "https://github.com/tanghaibao/jcvi"
+manual = "https://github.com/tanghaibao/jcvi/wiki"
+release_url = "https://github.com/tanghaibao/jcvi/tree/v1.6.7"
+downloads = "https://files.pythonhosted.org/packages/2c/80/17abbdb2e5abfd4ee5c617bdb3cd6ebf25ae73852a438b688d661f1605e7/jcvi-1.6.7.tar.gz"
+version = "1.6.7"
+license = "BSD-2-Clause"
+citation = "Tang et al. 2024, JCVI: A versatile toolkit for comparative genomics analysis"
+doi = "10.1002/imt2.211"
+watch = "tags"
+strip_prefix = "v"
+
+[smoke]
+backend = "docker"
+timeout = 600
+exist = ["jcvi", "jcvi-resources", "python", "bedtools", "convert", "identify", "dot", "tesseract", "Rscript", "embossversion", "needle", "samtools", "bgzip", "tabix", "lastdb", "lastal", "makeblastdb", "blastn", "bash", "grep", "sed", "ldd"]
+test = ["/opt/jcvi/share/testdata/jcvi-smoke.sh identity", "/opt/jcvi/share/testdata/jcvi-smoke.sh modules", "/opt/jcvi/share/testdata/jcvi-smoke.sh fasta", "/opt/jcvi/share/testdata/jcvi-smoke.sh bedtools", "/opt/jcvi/share/testdata/jcvi-smoke.sh graphics", "/opt/jcvi/share/testdata/jcvi-smoke.sh synteny", "/opt/jcvi/share/testdata/jcvi-smoke.sh helpers", "/opt/jcvi/share/testdata/jcvi-smoke.sh resources", "/opt/jcvi/share/testdata/jcvi-smoke.sh sam"]
