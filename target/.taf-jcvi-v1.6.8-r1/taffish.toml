@@ -1,7 +1,7 @@
 [package]
 name = "jcvi"
 kind = "tool"
-version = "1.6.7"
+version = "1.6.8"
 release = 1
 license = "Apache-2.0"
 main = "src/main.taf"
@@ -17,7 +17,7 @@ pipe = true
 command_mode = true
 
 [container]
-image = "ghcr.io/taffish/jcvi:1.6.7-r1"
+image = "ghcr.io/taffish/jcvi:1.6.8-r1"
 dockerfile = "docker/Dockerfile"
 build_platforms = "linux/amd64,linux/arm64"
 
@@ -25,7 +25,7 @@ build_platforms = "linux/amd64,linux/arm64"
 domain = "bio"
 categories = ["comparative-genomics", "genome-assembly", "genome-annotation", "synteny", "bioinformatics-utilities"]
 keywords = ["JCVI", "MCscan", "ALLMAPS", "synteny", "comparative genomics", "genome assembly", "genome annotation", "FASTA", "BED", "GFF", "genomics graphics"]
-description = "JCVI 1.6.7 Python toolkit for genome assembly, annotation, comparative genomics, file-format manipulation, synteny analysis, and genomics graphics."
+description = "JCVI 1.6.8 Python toolkit for genome assembly, annotation, comparative genomics, file-format manipulation, synteny analysis, and genomics graphics."
 
 [upstream]
 name = "JCVI"
@@ -33,9 +33,9 @@ type = "github"
 repo = "tanghaibao/jcvi"
 homepage = "https://github.com/tanghaibao/jcvi"
 manual = "https://github.com/tanghaibao/jcvi/wiki"
-release_url = "https://github.com/tanghaibao/jcvi/tree/v1.6.7"
-downloads = "https://files.pythonhosted.org/packages/2c/80/17abbdb2e5abfd4ee5c617bdb3cd6ebf25ae73852a438b688d661f1605e7/jcvi-1.6.7.tar.gz"
-version = "1.6.7"
+release_url = "https://github.com/tanghaibao/jcvi/tree/v1.6.8"
+downloads = "https://files.pythonhosted.org/packages/2c/e1/5c497c50c2e4f704529edec667f2e0f55592b6be779de50c329be1a7115e/jcvi-1.6.8.tar.gz"
+version = "1.6.8"
 license = "BSD-2-Clause"
 citation = "Tang et al. 2024, JCVI: A versatile toolkit for comparative genomics analysis"
 doi = "10.1002/imt2.211"

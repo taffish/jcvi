@@ -1,11 +1,11 @@
 FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS builder
 
-ARG JCVI_VERSION=1.6.7
-ARG JCVI_COMMIT=e10b8844a7539bad0a9de31f2bfe93b3c4fbd29c
-ARG JCVI_SDIST_URL=https://files.pythonhosted.org/packages/2c/80/17abbdb2e5abfd4ee5c617bdb3cd6ebf25ae73852a438b688d661f1605e7/jcvi-1.6.7.tar.gz
-ARG JCVI_SDIST_SHA256=6fb782769ad098103761687140d6ac16a601280f640cd4b242af559a70e3dbd3
-ARG JCVI_CITATION_URL=https://raw.githubusercontent.com/tanghaibao/jcvi/v1.6.7/CITATION.cff
-ARG JCVI_CITATION_SHA256=09b19c74b446098b5e2782fc932922527ea09fedf3ec8d54d257e21ff4ed15b8
+ARG JCVI_VERSION=1.6.8
+ARG JCVI_COMMIT=c7d2de6f4b5e3269fb922dc1ee16191408cf381a
+ARG JCVI_SDIST_URL=https://files.pythonhosted.org/packages/2c/e1/5c497c50c2e4f704529edec667f2e0f55592b6be779de50c329be1a7115e/jcvi-1.6.8.tar.gz
+ARG JCVI_SDIST_SHA256=90abb6d2da918ba11eaaa08629fabb504ffa0830ad08769303cba4df82d861df
+ARG JCVI_CITATION_URL=https://raw.githubusercontent.com/tanghaibao/jcvi/v1.6.8/CITATION.cff
+ARG JCVI_CITATION_SHA256=a85d2fe0e9b523a72a5e5b7b86649ec8fa9310afd69ee22e2616e28d364767eb
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -32,6 +32,9 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
 
 WORKDIR /tmp/build
+# Reproducibility boundary: fixed source checksums and pinned Python constraints
+# identify the inputs, but PyPI availability/build dependencies and Debian APT
+# indexes can drift. A base digest does not snapshot either package repository.
 COPY docker/constraints.txt /opt/jcvi/constraints.txt
 ENV PIP_CONSTRAINT=/opt/jcvi/constraints.txt
 
@@ -42,7 +45,7 @@ RUN --mount=type=cache,target=/root/.cache/pip set -eux; \
     tar -xzf jcvi.tar.gz -C /tmp/jcvi-src --strip-components=1; \
     python -m venv --copies /opt/jcvi/venv; \
     /opt/jcvi/venv/bin/python -m pip install --root-user-action=ignore --report /tmp/jcvi-install-report.json ./jcvi.tar.gz; \
-    /opt/jcvi/venv/bin/python -c 'import importlib.metadata as md; assert md.version("jcvi") == "1.6.7"'; \
+    /opt/jcvi/venv/bin/python -c 'import importlib.metadata as md; assert md.version("jcvi") == "1.6.8"'; \
     mkdir -p \
         /opt/jcvi/share/doc/jcvi \
         /opt/jcvi/share/licenses/jcvi \
@@ -84,7 +87,7 @@ for _, row in sorted(rows):
 PY
 
 COPY docker/jcvi-smoke.sh /opt/jcvi/share/testdata/jcvi-smoke.sh
-COPY docker/smoke.py docker/resource-regression.py docker/test_chromosome.py docker/TESTDATA.md /opt/jcvi/share/testdata/
+COPY docker/smoke.py docker/resource-regression.py docker/test-resource-safety.py docker/test_chromosome.py docker/TESTDATA.md /opt/jcvi/share/testdata/
 COPY docker/licenses/jcvi-BSD-2-Clause.txt /opt/jcvi/share/testdata/licenses/jcvi-BSD-2-Clause.txt
 
 RUN set -eux; \
@@ -169,17 +172,14 @@ RUN set -eux; \
 
 COPY --from=builder /opt/jcvi /opt/jcvi
 COPY --chmod=0755 docker/jcvi-resources.py /usr/local/bin/jcvi-resources
+COPY src/resource_validation.py /opt/jcvi/share/resource_validation.py
 COPY docker/apply-ontology-guard.py /opt/jcvi/share/doc/jcvi/apply-ontology-guard.py
 
 RUN set -eux; \
     python /opt/jcvi/share/doc/jcvi/apply-ontology-guard.py; \
     printf 'ontology_implicit_download=false\nontology_guard=apply-ontology-guard.py\n' >> /opt/jcvi/share/doc/jcvi/source.txt; \
     dpkg-query -W -f='${binary:Package}\t${Version}\n' | sort > /opt/jcvi/share/doc/jcvi/system-packages.tsv; \
-    jcvi --version 2>&1 | grep -Fx 'jcvi 1.6.7' >/dev/null; \
-    jcvi --help 2>&1 | grep -F 'Run jcvi modules' >/dev/null; \
-    jcvi formats.fasta 2>&1 | grep -F 'Remove irregular chars in FASTA seqs' >/dev/null; \
-    jcvi compara.synteny 2>&1 | grep -F 'Get anchor list using single-linkage algorithm' >/dev/null; \
-    python -c 'import importlib.metadata as md; import genomepy; import mysql.connector; import pyBigWig; import pybedtools; import pysam; import jcvi; import jcvi.algorithms; import jcvi.annotation; import jcvi.apps; import jcvi.assembly; import jcvi.compara; import jcvi.formats; import jcvi.graphics; import jcvi.projects; import jcvi.utils; import jcvi.variation; import jcvi.assembly.chic; import jcvi.formats.cblast; assert md.version("jcvi") == "1.6.7"; print(jcvi.__version__)' | grep -Fx '1.6.7' >/dev/null; \
+    # Check exit status and output independently; no drawing or full SAM here. \
     /opt/jcvi/share/testdata/jcvi-smoke.sh buildtime; \
     python -c 'import torch, torchvision, segment_anything; assert torch.__version__ == "2.8.0+cpu"; assert torchvision.__version__.split("+")[0] == "0.23.0"'; \
     # import torch preloads its own libraries (arm64 also uses torch.libs); static audit only. \
@@ -189,5 +189,8 @@ RUN set -eux; \
 
 WORKDIR /work
 
+# JCVI/getpass needs a display username even for arbitrary container UIDs.
+# This does not change the process UID, grant permissions or supply credentials.
+ENV LOGNAME=taffish USER=taffish
 ENV TAFFISH_ENV=TAFFISH
 ENV TAFFISH_NAME=jcvi

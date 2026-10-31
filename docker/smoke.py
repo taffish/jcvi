@@ -1,4 +1,4 @@
-"""独立离线容器测试；buildtime 不执行绘图或完整流程。"""
+"""Independent offline probes; buildtime excludes plots and full workflows."""
 from pathlib import Path
 import random
 import runpy
@@ -15,7 +15,7 @@ def run(*args, expected=(0,)):
     return p.stdout+p.stderr
 
 def identity():
-    assert run('jcvi','--version').strip()=='jcvi 1.6.7'
+    assert run('jcvi','--version').strip()=='jcvi 1.6.8'
     assert 'Run jcvi modules' in run('jcvi','--help')
     import importlib.metadata as md
     import genomepy, mysql.connector, pyBigWig, pybedtools, pysam
@@ -29,7 +29,7 @@ def identity():
             if r.marker and not r.marker.evaluate({'extra':''}): continue
             assert canonicalize_name(r.name) in installed,(d.name,str(r),'missing')
             assert installed[canonicalize_name(r.name)] in r.specifier,(d.name,str(r),'mismatch')
-    assert md.version('jcvi')==jcvi.__version__=='1.6.7'
+    assert md.version('jcvi')==jcvi.__version__=='1.6.8'
 
 def modules():
     for name,marker in [('formats.fasta','Remove irregular chars in FASTA seqs'),
@@ -37,6 +37,24 @@ def modules():
         ('compara.synteny','Get anchor list using single-linkage algorithm')]:
         out=run('jcvi',name,expected=(0,1))
         assert 'Traceback' not in out and marker in out
+    # New 1.6.8 selection/bytes paths: deterministic unit probes, no JGI token
+    # or network, and no claim of a complete external Gblocks installation.
+    from jcvi.apps.fetch import classify_phytozome_file, select_phytozome_files
+    def file(name):
+        return dict(_id=name, file_name=name, file_status='RESTORED', added_date='2020-01-01', metadata={})
+    assert classify_phytozome_file(file('Vv_457_v2.1.gene.gff3.gz')) == 'gff'
+    assert classify_phytozome_file(file('Vv_457_v2.1.gene_exons.gff3.gz')) is None
+    assert classify_phytozome_file(file('Vv_457_v2.1.cds.fa.gz')) == 'cds'
+    assert select_phytozome_files([]) == {}
+    from unittest.mock import patch
+    # Import-time defaults otherwise prompt for optional external executables.
+    # This controlled unit probe exercises decoding, not those executables.
+    with patch('jcvi.apps.base.getpath', side_effect=lambda program, **kwargs: program):
+        from jcvi.apps.phylo import run_gblocks
+    for output in (b'Gblocks alignment: 90 positions (90 %)\n', 'Gblocks alignment: 90 positions (90 %)\n'):
+        with patch('jcvi.apps.phylo.GblocksCommandline') as fake:
+            fake.return_value.run.return_value = (output, b'')
+            assert run_gblocks('synthetic.fa') == 'synthetic.fa-gb'
 
 def fasta():
     Path('input.fa').write_text('>seq2 description\nACGTNN\n>seq1\nAACCGGTT\n')
@@ -102,7 +120,7 @@ def helpers():
 def resources(): runpy.run_path('/opt/jcvi/share/testdata/resource-regression.py',run_name='__main__')
 
 def sam():
-    # 只测官方 CPU 组件接口和真实算子；随机 tiny 模型不是 ViT-H 科学验证。
+    # Real CPU operators only; a random tiny model is not ViT-H scientific QA.
     import torch, torchvision
     from segment_anything.modeling import ImageEncoderViT, PromptEncoder, MaskDecoder, Sam, TwoWayTransformer
     assert torch.__version__=='2.8.0+cpu' and torchvision.__version__.split('+')[0]=='0.23.0'

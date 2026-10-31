@@ -1,2 +1,61 @@
-<taf-app:container:ghcr.io/taffish/jcvi:1.6.7-r1$@[docker/podman: $(taf_jcvi_check() { test -n "$taf_jcvi_root" && test -d "$taf_jcvi_root" || return 1; case "$taf_jcvi_root" in (/*) :;; (*) taf_jcvi_root="$PWD/$taf_jcvi_root";; esac; taf_jcvi_root="$(CDPATH= cd "$taf_jcvi_root" 2>/dev/null && pwd -P)" || return 1; test -n "$taf_jcvi_root" && test -d "$taf_jcvi_root" || return 1; for taf_jcvi_member in resource.data resource.json SHA256SUMS READY; do test -f "$taf_jcvi_root/$taf_jcvi_member" && test ! -L "$taf_jcvi_root/$taf_jcvi_member" || return 1; done; for taf_jcvi_member in "$taf_jcvi_root"/* "$taf_jcvi_root"/.[!.\]* "$taf_jcvi_root"/..?*; do if test -e "$taf_jcvi_member" || test -L "$taf_jcvi_member"; then case "${taf_jcvi_member##*/}" in (resource.data|resource.json|SHA256SUMS|READY) :;; (*) return 1;; esac; fi; done; awk 'NF != 2 || length($1) != 64 || $1 ~ /[^a-f0-9\]/ { bad=1 } $2 == "resource.data" { g++ } $2 == "resource.json" { r++ } END { exit (bad || NR != 2 || g != 1 || r != 1) }' "$taf_jcvi_root/SHA256SUMS" || return 1; taf_jcvi_sum="$(taf_jcvi_hash "$taf_jcvi_root/SHA256SUMS")"; test "${taf_jcvi_sum%% *}" = "$(cat "$taf_jcvi_root/READY")" || return 1; grep -Fx '  "schema": "taffish.jcvi.resource.v1",' "$taf_jcvi_root/resource.json" >/dev/null || return 1; taf_jcvi_actual_id="$(sed -n 's/^  "resource": "\([A-Za-z0-9\][A-Za-z0-9_.-\]*\)",$/\1/p' "$taf_jcvi_root/resource.json")"; test -n "$taf_jcvi_actual_id" || return 1; case "$taf_jcvi_actual_id" in (*[!A-Za-z0-9_.-\]*) return 1;; esac; if test -n "$taf_jcvi_id" && test "$taf_jcvi_actual_id" != "$taf_jcvi_id"; then printf >&2 'taf-jcvi: resource identity mismatch: requested=%s actual=%s\n' "$taf_jcvi_id" "$taf_jcvi_actual_id"; return 1; fi; taf_jcvi_expected_sha=''; case "$taf_jcvi_actual_id" in (ensembl-r116-yeast-fasta) taf_jcvi_expected_sha=35cc97fccb91762c7a1f0f71b4adb1037b143d48b63fbd3b3f8bad45e5afa44c;; (ensembl-r116-yeast-gff3) taf_jcvi_expected_sha=3d70320fd69c941aa7b500f6265aef41920794b192c3c980d6460a6b43204792;; (sam-vit-h-4b8939) taf_jcvi_expected_sha=a7bf3b02f3ebf1267aba913ff637d9a2d5c33d3173bb679e46d9f338c26f262e;; (local-?*) :;; (*) return 1;; esac; if test -n "$taf_jcvi_expected_sha"; then grep -Fx "$taf_jcvi_expected_sha  resource.data" "$taf_jcvi_root/SHA256SUMS" >/dev/null || return 1; fi; (cd "$taf_jcvi_root" && if command -v sha256sum >/dev/null 2>&1; then sha256sum -c SHA256SUMS; else shasum -a 256 -c SHA256SUMS; fi) >/dev/null 2>&1; }; taf_jcvi_hash() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1"; else shasum -a 256 "$1"; fi; }; taf_jcvi_emit() { taf_jcvi_path="$(cd "$1" 2>/dev/null && pwd -P)"; taf_jcvi_bad="$(printf '%s' "$taf_jcvi_path" | tr -d 'A-Za-z0-9_./+-')"; if test -z "$taf_jcvi_path" || test -n "$taf_jcvi_bad"; then printf >&2 'taf-jcvi: resource bind path must use letters, digits, _, ., /, + or -; use a safe physical path\n'; printf -- '--taffish-jcvi-invalid-resource'; return; fi; printf -- '--volume=%s:%s' "$taf_jcvi_path" "$2"; }; if test -n "${TAFFISH_JCVI_RESOURCE_INSTALL_ROOT:-}"; then taf_jcvi_emit "$TAFFISH_JCVI_RESOURCE_INSTALL_ROOT" /resource-install; exit 0; fi; if test "${TAFFISH_JCVI_RESOURCE_AUTO_MOUNT:-1}" = 0; then exit 0; fi; taf_jcvi_root="${TAFFISH_JCVI_RESOURCE_PATH:-}"; taf_jcvi_id="${TAFFISH_JCVI_RESOURCE_ID:-}"; if test -z "$taf_jcvi_root" && test -n "$taf_jcvi_id"; then taf_jcvi_bad="$(printf '%s' "$taf_jcvi_id" | tr -d 'A-Za-z0-9_.-')"; if test -n "$taf_jcvi_bad" || test "${taf_jcvi_id#.}" != "$taf_jcvi_id"; then printf -- '--taffish-jcvi-invalid-resource'; exit 0; fi; for taf_jcvi_candidate in "${TAFFISH_USER_HOME:-${HOME:-}/.local/share/taffish}/resources/jcvi/$taf_jcvi_id" "/usr/local/share/taffish/resources/jcvi/$taf_jcvi_id" "/opt/taffish/resources/jcvi/$taf_jcvi_id"; do if test -e "$taf_jcvi_candidate" || test -L "$taf_jcvi_candidate"; then taf_jcvi_root="$taf_jcvi_candidate"; break; fi; done; fi; if test -n "$taf_jcvi_root" || test -n "$taf_jcvi_id"; then if taf_jcvi_check; then taf_jcvi_emit "$taf_jcvi_root" /jcvi-resource:ro; else printf >&2 'taf-jcvi: selected resource missing or corrupt (identity/inventory/member check); run jcvi-resources verify or choose TAFFISH_JCVI_RESOURCE_PATH\n'; printf -- '--taffish-jcvi-invalid-resource'; fi; fi)][docker: --user=$(id -u):$(id -g)][podman: --userns=keep-id --user=$(id -u):$(id -g)][apptainer: $(taf_jcvi_check() { test -n "$taf_jcvi_root" && test -d "$taf_jcvi_root" || return 1; case "$taf_jcvi_root" in (/*) :;; (*) taf_jcvi_root="$PWD/$taf_jcvi_root";; esac; taf_jcvi_root="$(CDPATH= cd "$taf_jcvi_root" 2>/dev/null && pwd -P)" || return 1; test -n "$taf_jcvi_root" && test -d "$taf_jcvi_root" || return 1; for taf_jcvi_member in resource.data resource.json SHA256SUMS READY; do test -f "$taf_jcvi_root/$taf_jcvi_member" && test ! -L "$taf_jcvi_root/$taf_jcvi_member" || return 1; done; for taf_jcvi_member in "$taf_jcvi_root"/* "$taf_jcvi_root"/.[!.\]* "$taf_jcvi_root"/..?*; do if test -e "$taf_jcvi_member" || test -L "$taf_jcvi_member"; then case "${taf_jcvi_member##*/}" in (resource.data|resource.json|SHA256SUMS|READY) :;; (*) return 1;; esac; fi; done; awk 'NF != 2 || length($1) != 64 || $1 ~ /[^a-f0-9\]/ { bad=1 } $2 == "resource.data" { g++ } $2 == "resource.json" { r++ } END { exit (bad || NR != 2 || g != 1 || r != 1) }' "$taf_jcvi_root/SHA256SUMS" || return 1; taf_jcvi_sum="$(taf_jcvi_hash "$taf_jcvi_root/SHA256SUMS")"; test "${taf_jcvi_sum%% *}" = "$(cat "$taf_jcvi_root/READY")" || return 1; grep -Fx '  "schema": "taffish.jcvi.resource.v1",' "$taf_jcvi_root/resource.json" >/dev/null || return 1; taf_jcvi_actual_id="$(sed -n 's/^  "resource": "\([A-Za-z0-9\][A-Za-z0-9_.-\]*\)",$/\1/p' "$taf_jcvi_root/resource.json")"; test -n "$taf_jcvi_actual_id" || return 1; case "$taf_jcvi_actual_id" in (*[!A-Za-z0-9_.-\]*) return 1;; esac; if test -n "$taf_jcvi_id" && test "$taf_jcvi_actual_id" != "$taf_jcvi_id"; then printf >&2 'taf-jcvi: resource identity mismatch: requested=%s actual=%s\n' "$taf_jcvi_id" "$taf_jcvi_actual_id"; return 1; fi; taf_jcvi_expected_sha=''; case "$taf_jcvi_actual_id" in (ensembl-r116-yeast-fasta) taf_jcvi_expected_sha=35cc97fccb91762c7a1f0f71b4adb1037b143d48b63fbd3b3f8bad45e5afa44c;; (ensembl-r116-yeast-gff3) taf_jcvi_expected_sha=3d70320fd69c941aa7b500f6265aef41920794b192c3c980d6460a6b43204792;; (sam-vit-h-4b8939) taf_jcvi_expected_sha=a7bf3b02f3ebf1267aba913ff637d9a2d5c33d3173bb679e46d9f338c26f262e;; (local-?*) :;; (*) return 1;; esac; if test -n "$taf_jcvi_expected_sha"; then grep -Fx "$taf_jcvi_expected_sha  resource.data" "$taf_jcvi_root/SHA256SUMS" >/dev/null || return 1; fi; (cd "$taf_jcvi_root" && if command -v sha256sum >/dev/null 2>&1; then sha256sum -c SHA256SUMS; else shasum -a 256 -c SHA256SUMS; fi) >/dev/null 2>&1; }; taf_jcvi_hash() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1"; else shasum -a 256 "$1"; fi; }; taf_jcvi_emit() { taf_jcvi_path="$(cd "$1" 2>/dev/null && pwd -P)"; taf_jcvi_bad="$(printf '%s' "$taf_jcvi_path" | tr -d 'A-Za-z0-9_./+-')"; if test -z "$taf_jcvi_path" || test -n "$taf_jcvi_bad"; then printf >&2 'taf-jcvi: resource bind path must use letters, digits, _, ., /, + or -; use a safe physical path\n'; printf -- '--taffish-jcvi-invalid-resource'; return; fi; printf -- '--bind=%s:%s' "$taf_jcvi_path" "$2"; }; if test -n "${TAFFISH_JCVI_RESOURCE_INSTALL_ROOT:-}"; then taf_jcvi_emit "$TAFFISH_JCVI_RESOURCE_INSTALL_ROOT" /resource-install; exit 0; fi; if test "${TAFFISH_JCVI_RESOURCE_AUTO_MOUNT:-1}" = 0; then exit 0; fi; taf_jcvi_root="${TAFFISH_JCVI_RESOURCE_PATH:-}"; taf_jcvi_id="${TAFFISH_JCVI_RESOURCE_ID:-}"; if test -z "$taf_jcvi_root" && test -n "$taf_jcvi_id"; then taf_jcvi_bad="$(printf '%s' "$taf_jcvi_id" | tr -d 'A-Za-z0-9_.-')"; if test -n "$taf_jcvi_bad" || test "${taf_jcvi_id#.}" != "$taf_jcvi_id"; then printf -- '--taffish-jcvi-invalid-resource'; exit 0; fi; for taf_jcvi_candidate in "${TAFFISH_USER_HOME:-${HOME:-}/.local/share/taffish}/resources/jcvi/$taf_jcvi_id" "/usr/local/share/taffish/resources/jcvi/$taf_jcvi_id" "/opt/taffish/resources/jcvi/$taf_jcvi_id"; do if test -e "$taf_jcvi_candidate" || test -L "$taf_jcvi_candidate"; then taf_jcvi_root="$taf_jcvi_candidate"; break; fi; done; fi; if test -n "$taf_jcvi_root" || test -n "$taf_jcvi_id"; then if taf_jcvi_check; then taf_jcvi_emit "$taf_jcvi_root" /jcvi-resource:ro; else printf >&2 'taf-jcvi: selected resource missing or corrupt (identity/inventory/member check); run jcvi-resources verify or choose TAFFISH_JCVI_RESOURCE_PATH\n'; printf -- '--taffish-jcvi-invalid-resource'; fi; fi)]>
+<shell>
+# Discovery exposes a verified root; selecting the resource remains explicit.
+taf_jcvi_mount() {
+    taf_jcvi_backend="$1"
+    taf_jcvi_path=""
+    taf_jcvi_target="/jcvi-resource:ro"
+    case "${TAFFISH_JCVI_RESOURCE_AUTO_MOUNT:-1}" in
+        0) printf -- '--env=TAFFISH_ENV=TAFFISH'; return ;;
+        1) ;;
+        *) printf >&2 'taf-jcvi: RESOURCE_AUTO_MOUNT must be 0 or 1\n'
+           printf -- '--taf-jcvi-invalid-resource'; return ;;
+    esac
+    if test "${TAFFISH_JCVI_RESOURCE_INSTALL_ROOT+x}" = x; then
+        taf_jcvi_path="$TAFFISH_JCVI_RESOURCE_INSTALL_ROOT"
+        taf_jcvi_target="/resource-install"
+        taf_jcvi_install=1
+    else
+        taf_jcvi_install=0
+        if test "${TAFFISH_JCVI_RESOURCE_PATH+x}" = x; then
+            taf_jcvi_path="$TAFFISH_JCVI_RESOURCE_PATH"
+        elif test -n "${TAFFISH_JCVI_RESOURCE_ID:-}"; then
+            case "$TAFFISH_JCVI_RESOURCE_ID" in
+                *[!A-Za-z0-9_.-]*|.*|-*) printf >&2 'taf-jcvi: invalid resource ID\n'
+                    printf -- '--taf-jcvi-invalid-resource'; return ;;
+            esac
+            for taf_jcvi_base in "${TAFFISH_USER_HOME:-$HOME/.local/share/taffish}/resources/jcvi" "${TAFFISH_SYSTEM_HOME:-/usr/local/share/taffish}/resources/jcvi" /opt/taffish/resources/jcvi; do
+                if test -e "$taf_jcvi_base/$TAFFISH_JCVI_RESOURCE_ID" || test -L "$taf_jcvi_base/$TAFFISH_JCVI_RESOURCE_ID"; then
+                    taf_jcvi_path="$taf_jcvi_base/$TAFFISH_JCVI_RESOURCE_ID"; break
+                fi
+            done
+        else
+            printf -- '--env=TAFFISH_ENV=TAFFISH'; return
+        fi
+    fi
+    taf_jcvi_ok=1
+    if ! test -d "$taf_jcvi_path"; then taf_jcvi_ok=0; else
+        taf_jcvi_path="$(CDPATH= cd "$taf_jcvi_path" && pwd -P)"
+        case "$taf_jcvi_path" in *:*|*,*) taf_jcvi_ok=0 ;; esac
+        if test "$taf_jcvi_install" = 0; then
+            if ! command -v python3 >/dev/null 2>&1; then
+                printf >&2 'taf-jcvi: automatic resource verification requires host Python 3; disable auto-mount, verify inside the image and use a manual bind.\n'
+                taf_jcvi_ok=0
+            elif test -n "${TAFFISH_JCVI_RESOURCE_ID:-}"; then
+                python3 -I -B "::*LOADDIR*::/resource_validation.py" verify "$taf_jcvi_path" --expected-resource "$TAFFISH_JCVI_RESOURCE_ID" >&2 || taf_jcvi_ok=0
+            else
+                python3 -I -B "::*LOADDIR*::/resource_validation.py" verify "$taf_jcvi_path" >&2 || taf_jcvi_ok=0
+            fi
+        fi
+    fi
+    if test "$taf_jcvi_ok" != 1; then
+        printf >&2 'taf-jcvi: missing/invalid prepared resource root: %s; select RESOURCE_PATH or disable auto-mount for explicit setup/manual paths.\n' "$taf_jcvi_path"
+        printf -- '--taf-jcvi-invalid-resource'; return
+    fi
+    if test "$taf_jcvi_backend" = apptainer; then
+        printf -- '--bind=%s:%s' "$taf_jcvi_path" "$taf_jcvi_target"
+    else
+        printf -- '--volume=%s:%s' "$taf_jcvi_path" "$taf_jcvi_target"
+    fi
+}
+<taf-app:container:ghcr.io/taffish/jcvi:1.6.8-r1$@[docker/podman: "$(taf_jcvi_mount docker)"][docker: --user=$(id -u):$(id -g)][podman: --userns=keep-id --user=$(id -u):$(id -g)][apptainer: "$(taf_jcvi_mount apptainer)"]>
 jcvi ::*ARGV*::

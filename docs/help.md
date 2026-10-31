@@ -1,4 +1,4 @@
-jcvi 1.6.7-r1
+jcvi 1.6.8-r1
 
 Purpose:
   Prepare genome files, find collinear genes and create headless genomics plots.
@@ -61,7 +61,7 @@ Reuse personal or administrator-installed resources (all three backends):
   Override: TAFFISH_JCVI_RESOURCE_PATH=/safe/path/to/ID
   Disable discovery: TAFFISH_JCVI_RESOURCE_AUTO_MOUNT=0
   Root symlinks resolve physically; member symlinks, wrong IDs or corrupt units fail.
-  Administrator-once setup, permissions and manual binds: README.
+  Auto-mount needs host Python 3; without it use verified manual binds (README).
 
 Optional SAM seed segmentation (install sam-vit-h-4b8939 above first):
   export TAFFISH_JCVI_RESOURCE_ID=sam-vit-h-4b8939
@@ -74,8 +74,8 @@ Optional SAM seed segmentation (install sam-vit-h-4b8939 above first):
 Immediate notes:
   Before --verifySO, select a prepared SO OBO member and copy resource.data to
   so.obo in a NEW work directory. GO consumers similarly need go-basic.obo.
-  Missing ontology files fail closed; prepare a verified local snapshot first.
-  NCBI/cloud/Phytozome fetch actions need network/access rights; never put credentials in URLs.
+  Missing resources fail closed; interruption retains partials and old recovery trees.
+  Phytozome requires your JGI token; fetch actions need network/rights (see upstream help).
   Missing optional aligner: use a dedicated tool/workflow image; host PATH is not a fallback.
   Read-only error: use writable output/scratch or an actual install bind; never chmod SIF.
 

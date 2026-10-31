@@ -1,11 +1,12 @@
-# JCVI 1.6.7 candidate runtime closure, resolved 2026-09-08 on native amd64.
+# JCVI 1.6.8 candidate runtime closure, resolved 2026-09-08 on native amd64.
 # Both declared platforms build against these versions; per-platform install reports retain URLs/hashes.
 absl-py==2.5.0
 anyio==4.15.1
 appdirs==1.4.4
 argcomplete==3.7.2
 argh==0.31.3
-biopython==1.88
+# JCVI 1.6.8 still imports Bio.Emboss/Phylo.Applications removed in 1.88.
+biopython==1.85
 biothings_client==0.5.1
 boto3==1.43.89
 botocore==1.43.89
@@ -43,7 +44,7 @@ ImageIO==2.37.4
 immutabledict==4.3.1
 interface_meta==2.0.1
 jaraco.functools==4.6.0
-jcvi==1.6.7
+jcvi==1.6.8
 Jinja2==3.1.6
 jmespath==1.1.0
 kiwisolver==1.5.1

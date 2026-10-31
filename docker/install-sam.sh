@@ -16,9 +16,11 @@ esac
 tmp=$(mktemp -d /tmp/jcvi-sam-build.XXXXXXXX)
 trap 'rm -rf -- "$tmp"' EXIT
 cd "$tmp"
-curl --fail --location --retry 5 --retry-all-errors "https://download-r2.pytorch.org/whl/cpu/${torch_file/+/%2B}" -o "$torch_file"
+# Resume large, checksum-pinned wheels after transient transport failures.
+# HTTP/1.1 avoids intermediary HTTP/2 stream resets without weakening HTTPS.
+curl --http1.1 --fail --location --retry 5 --retry-all-errors --continue-at - --connect-timeout 30 --max-time 900 "https://download-r2.pytorch.org/whl/cpu/${torch_file/+/%2B}" -o "$torch_file"
 printf '%s  %s\n' "$torch_sha" "$torch_file" | sha256sum -c -
-curl --fail --location --retry 5 --retry-all-errors "https://download-r2.pytorch.org/whl/cpu/${vision_file/+/%2B}" -o "$vision_file"
+curl --http1.1 --fail --location --retry 5 --retry-all-errors --continue-at - --connect-timeout 30 --max-time 900 "https://download-r2.pytorch.org/whl/cpu/${vision_file/+/%2B}" -o "$vision_file"
 printf '%s  %s\n' "$vision_sha" "$vision_file" | sha256sum -c -
 sam_commit=dca509fe793f601edb92606367a655c15ac00fdf
 sam_sha=b693c2358e9e1c63589a322b1baa6a6dc384df0013ff455d933d9a8e23549dab

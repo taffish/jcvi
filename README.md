@@ -5,17 +5,16 @@
 Package identity:
 
 - name / command / kind: `jcvi` / `taf-jcvi` / `tool`
-- version: `1.6.7-r1`; image: `ghcr.io/taffish/jcvi:1.6.7-r1`
+- version: `1.6.8-r1`; image: `ghcr.io/taffish/jcvi:1.6.8-r1`
 - packaging license: Apache-2.0; actual upstream LICENSE: BSD-2-Clause
-- upstream: [v1.6.7](https://github.com/tanghaibao/jcvi/tree/v1.6.7),
-  commit `e10b8844a7539bad0a9de31f2bfe93b3c4fbd29c`
+- upstream: [v1.6.8](https://github.com/tanghaibao/jcvi/tree/v1.6.8),
+  commit `c7d2de6f4b5e3269fb922dc1ee16191408cf381a`
 
 ## What This App Packages
 
 The complete JCVI Python distribution is compiled from the checksum-pinned
-1.6.7 PyPI source archive, including its Cython extensions. This release brings
-the upstream chromosome-region clipping fixes and output-path/test-isolation
-corrections. Analysis algorithms are unchanged. A narrow ontology I/O guard
+1.6.8 PyPI source archive, including its Cython extensions. This release updates
+Phytozome to the JGI REST API and fixes Gblocks stdout decoding on Python 3. Analysis algorithms are unchanged. A narrow ontology I/O guard
 rejects implicit GO/SO downloads when the explicitly prepared local OBO is missing.
 
 The wrapper retains the upstream dispatcher and automatic executable mode.
@@ -56,7 +55,13 @@ The base image is digest-pinned. Runtime versions are constrained in
 artifact hashes), freezes, Debian inventories, source archive, LICENSE and
 CITATION remain under `/opt/jcvi/share/`. Debian packages and isolated
 build-backend tooling are resolved during build; this is not a claim of
-bit-for-bit reproducible image rebuilds.
+bit-for-bit reproducible image rebuilds. Pinned files can also disappear from
+upstream hosting. Biopython is fixed at 1.85 because JCVI still imports
+`Bio.Emboss.Applications` and `Bio.Phylo.Applications`, absent in 1.88;
+no upstream analysis code is changed.
+The image supplies `LOGNAME=taffish` and `USER=taffish` as display-name defaults
+for arbitrary numeric UIDs without a passwd entry. They do not change UID/GID
+or permissions and are not a real contact address or account credential.
 
 Build caches, Python test suites, static archives and PyTorch C++ headers/CMake/
 protoc are excluded. SAM uses eager CPU inference; this is not a C++ extension
@@ -69,8 +74,8 @@ Install TAFFISH and a working Docker, Podman or native Linux Apptainer backend.
 After this release is published and available in the Hub Index:
 
 ```sh
-taf install jcvi 1.6.7-r1
-taf-jcvi-v1.6.7-r1 --version
+taf install jcvi 1.6.8-r1
+taf-jcvi-v1.6.8-r1 --version
 ```
 
 The examples below use the installed `taf-jcvi` default alias; use the versioned
@@ -140,7 +145,7 @@ Core genomics and classic Grabseeds need no trained model. Optional Grabseeds
 `--filter sam` needs the official ViT-H checkpoint. The smallest reusable resource
 is one assembly FASTA, matching GFF3 annotation, GO/SO OBO snapshot or fixed model.
 Project-specific alignments/layouts remain explicit inputs. Three independent catalog
-members are available; neither is downloaded by default:
+members are available; none is downloaded by default:
 
 | ID | Fixed source | Download bytes | Installed payload |
 | --- | --- | --- | --- |
@@ -172,11 +177,16 @@ source, target and conservative space estimate.
 
 Discovery for the selected ID: personal root above, then
 `/usr/local/share/taffish/resources/jcvi/ID`, then `/opt/taffish/resources/jcvi/ID`.
+`TAFFISH_SYSTEM_HOME` can relocate the first site prefix from `/usr/local/share/taffish`.
 `TAFFISH_JCVI_RESOURCE_PATH` overrides with one prepared unit; an ID also set
 must agree. `TAFFISH_JCVI_RESOURCE_AUTO_MOUNT=0` disables discovery.
 Invalid personal units fail closed rather than falling back to another site
-copy. Bind paths permit letters, digits, underscore, dot, slash, plus or minus;
-use a safe physical path if necessary.
+copy. Automatic verification requires host Python 3 (standard library only);
+the frozen host module and container installer use the same complete contract.
+Without host Python, disable discovery and use the verified manual-bind path below.
+Mount paths cannot contain colon or comma (backend syntax); valid root aliases
+resolve physically. Ordinary spaces are supported for resource mounts, but JCVI
+workflow shell calls still have the separate path restriction above.
 
 ### Administrator-once installation
 
@@ -244,11 +254,31 @@ resolves root symlinks to physical directories before validation and read-only
 binding; dangling or cyclic roots are rejected. Wrong identity, missing/extra
 members, member symlinks, corruption or inventory mismatch remain errors.
 Existing valid units are idempotent; changed data need a new ID.
-Private lock/staging directories prevent concurrent promotion. Interrupted
-HTTPS downloads resume from retained checksum-named cache; failures never
-promote or overwrite. Inspect stale lock ownership before recovery. Gzip is
-decoded during staging; disk exhaustion or malformed content leaves no installed
-unit. Allow room for both compressed and decoded data.
+Verification independently rechecks every member's contents after the semantic
+inventory read; timestamps are not used as proof that the bytes stayed unchanged.
+Read-only VM file sharing may refresh `ctime`; that alone triggers one additional
+full validation. Changed contents, identity, modification time or permissions
+still fail, including equal-size writes within one filesystem clock tick.
+A private `.jcvi-install.lock` serializes installations in one store. New-member
+installation validates all existing members; an unrelated broken member is not
+silently accepted. No `--force` overwrite or automatic cache deletion is offered:
+changed data need a new ID/root. Managed-resource discovery never downloads;
+preparing one of these members requires an explicit helper installation.
+
+INT/TERM clean only files and directories owned by this transaction, including
+interruption before lock metadata is written. Existing staging/recovery directories
+and partial downloads are retained. Parent/member replacement or unexpected files
+fail closed with diagnostics; cleanup never follows their links. A valid completed
+member is reusable without writes or network. On supported filesystems publication
+uses no-replace rename; elsewhere an exclusively created directory becomes readable
+only when READY is committed last. Readers reject any incomplete unit.
+
+Interrupted HTTPS downloads resume from the checksum-named `.downloads/*.part`;
+a zero-byte partial restarts normally, while oversized or checksum-invalid cache
+fails without promotion. Inspect the specific cache or stale lock and its owner
+before manual recovery; do not remove a live lock or sweep old staging trees.
+Gzip is decoded during staging with ongoing free-space checks. Allow room for both
+compressed and decoded data; permissions/disk exhaustion fail without replacing old data.
 
 GO/SO default-URL consumers require a verified OBO unit copied as `so.obo` or
 `go-basic.obo` into a fresh work directory before use. The upstream downloader
@@ -270,6 +300,17 @@ TAFFISH_CONTAINER_BACKEND=apptainer TAFFISH_JCVI_RESOURCE_AUTO_MOUNT=0 TAFFISH_A
 
 These are site/storage overrides, not mandatory per-run app flags.
 
+## Phytozome / JGI access
+
+JCVI 1.6.8 uses the official JGI Data Portal REST API. Downloads require your
+own authorized JGI session token and may be subject to organism-specific data-use
+conditions. The app does not supply, persist or log credentials, accept terms for
+you, or guarantee hosted-service availability. Inspect
+`taf-jcvi jcvi apps.fetch phytozome --help` and follow JGI's current sign-in flow.
+No authenticated JGI download is part of the packaging acceptance tests.
+After authorized retrieval, import only snapshots whose license permits your
+intended local/site sharing; do not put tokens in URLs, manifests or shell history.
+
 ## Boundaries
 
 SAM is included as the CPU library used by JCVI, not as the separate SAM React
@@ -278,7 +319,11 @@ default Grabseeds method remains classic `canny`; SAM requires explicit selectio
 
 All shipped modules remain present, but presence is not complete functional
 coverage. Specialized Kent/BLAT, BWA/Bowtie2, minimap2, MUMmer, GMAP, CD-HIT,
-MUSCLE, RAxML, MAKER, PASA and AUGUSTUS integrations are not bundled or tested.
+MUSCLE, Gblocks, RAxML, MAKER, PASA and AUGUSTUS integrations are not bundled or fully tested.
+The 1.6.8 Gblocks bytes/text decoding change is checked with controlled output;
+this is not an execution of an external Gblocks installation. Debian main for the
+selected base does not provide that optional executable; no non-free binary or
+new external phylogeny stack has been added.
 Use separate tools/workflow images; host PATH is not a fallback. Default MCscan
 LAST is included; optional DIAMOND is not.
 
@@ -307,28 +352,22 @@ authentication is outside the declared local workflows.
 
 ## Testing
 
-Current 1.6.7-r1 validation passed on native arm64 Docker/Podman Linux VMs and
-native amd64 Docker/Podman/Apptainer on the maintainer's xjp Linux host.
-All 279 exact smoke invocations passed (31 commands across nine ordinary/read-only
-groups), as did 240 ordinary-wrapper checks, 60 full-model wrapper checks and
-five exit-code/log-tail failure-injection checks. Full official ViT-H inference
-produced nonempty seed statistics and a readable PDF on all five tested combinations.
-Reference and model HTTPS resume, full checksum and offline idempotence passed.
-The system-sharing mechanism was tested in private site-like directories with
-0755/0644 ownership checks and actual read-only mounts; a real production site/root
-installation or second host account was not operated.
+The 2026-10-30 packaging validation used native ARM64 Docker/Podman and native
+amd64 Docker/Podman/Apptainer on the maintainer's xjp test host. The final images
+passed 416 exact smoke commands, 175 real-wrapper checks, 18 supplementary
+identity/sharing checks, 45 resource-lifecycle calls and 60 full-checkpoint model
+checks. Thirty-one concentrated resource-safety cases cover negative paths, races,
+interruption, recovery and idempotence. Prior-version results are not counted.
 
-The repaired root-symlink path was tested with relative/chained/personal/site
-roots, actual read-only binds and full model inference; corrupt member links
-remain rejected. arm64 Podman used a private persistent connection to the same
-rootless VM and serialized tests because of the host's keyring quota. Container
-arguments and isolation were unchanged; this is not an app runtime requirement.
-
-arm64 Apptainer was not separately validated. Both independent platform/backend
-axes passed, including architecture-specific CPU wheels and resource binds;
-no additional architecture-specific Apptainer coupling was identified. This is
-not a claim of testing the full architecture/backend cross-product. Publication,
-GitHub Action/GHCR and Hub Index acceptance remain separate maintainer steps.
+ARM64 Docker's wrapper run used a private test HOME after Docker Desktop's
+file-sharing service failed with the whole account home mounted. The same real
+wrapper, image, explicit binds and assertions were retained; no app logic or
+engine settings were changed for this isolation. Earlier environment failures
+remain in the maintainer evidence, and this is not a claim that Docker Desktop
+itself was repaired. The final native images are 2,219,256,026 bytes (arm64) and
+2,354,425,891 bytes (amd64), uncompressed engine-reported sizes; the external
+2.6 GB SAM checkpoint is not part of either image. GitHub Action/GHCR and Hub
+Index acceptance remain post-publication steps.
 
 Smoke covers identity/dependency closure, module help, FASTA/BED, LAST → MCscan
 → PDF, five upstream clipping regressions, R/Graphviz/Wand, Samtools/EMBOSS/
@@ -347,7 +386,7 @@ for real data; a successful run does not establish seed-outline or model accurac
 
 ## License and Citation
 
-TAFFISH packaging and original helpers: Apache-2.0. Actual upstream 1.6.7 LICENSE
+TAFFISH packaging and original helpers: Apache-2.0. Actual upstream 1.6.8 LICENSE
 is BSD-2-Clause; upstream pyproject metadata says BSD-3-Clause. The actual text
 is preserved in [the source-tree notice](docker/licenses/jcvi-BSD-2-Clause.txt)
 alongside the unmodified upstream graphics test, and in the image; the metadata
