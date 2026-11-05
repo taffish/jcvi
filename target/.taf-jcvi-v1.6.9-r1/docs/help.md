@@ -1,4 +1,4 @@
-jcvi 1.6.8-r1
+jcvi 1.6.9-r1
 
 Purpose:
   Prepare genome files, find collinear genes and create headless genomics plots.
@@ -14,7 +14,7 @@ Common tasks:
   taf-jcvi jcvi formats.gff summary genes.gff3
   taf-jcvi jcvi compara.catalog ortholog species_a species_b --cpus=4 --notex
   taf-jcvi jcvi compara.synteny mcscan species_a.bed species_a.species_b.anchors --iter=1 -o blocks.txt
-  taf-jcvi jcvi graphics.synteny blocks simple.bed layout --notex
+  taf-jcvi jcvi graphics.synteny blocks merged.bed blocks.layout --notex
 
 Required inputs:
   FASTA sequences; BED/GFF annotation; action-specific anchors/layout files.
@@ -25,6 +25,7 @@ Required inputs:
 
 Common options:
   --cpus=N       Limit threads where the action supports it.
+  --genelabels=ID  Label selected genes in graphics.synteny; --genelabelsize=0 hides them.
   -o FILE        Explicit output for actions that support it; inspect action help.
   --notex        Use native text rendering in supported plotting actions.
 
@@ -77,7 +78,6 @@ Immediate notes:
   Missing resources fail closed; interruption retains partials and old recovery trees.
   Phytozome requires your JGI token; fetch actions need network/rights (see upstream help).
   Missing optional aligner: use a dedicated tool/workflow image; host PATH is not a fallback.
-  Read-only error: use writable output/scratch or an actual install bind; never chmod SIF.
 
 More help:
   taf-jcvi jcvi compara.catalog ortholog --help

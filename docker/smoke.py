@@ -15,7 +15,7 @@ def run(*args, expected=(0,)):
     return p.stdout+p.stderr
 
 def identity():
-    assert run('jcvi','--version').strip()=='jcvi 1.6.8'
+    assert run('jcvi','--version').strip()=='jcvi 1.6.9'
     assert 'Run jcvi modules' in run('jcvi','--help')
     import importlib.metadata as md
     import genomepy, mysql.connector, pyBigWig, pybedtools, pysam
@@ -29,7 +29,7 @@ def identity():
             if r.marker and not r.marker.evaluate({'extra':''}): continue
             assert canonicalize_name(r.name) in installed,(d.name,str(r),'missing')
             assert installed[canonicalize_name(r.name)] in r.specifier,(d.name,str(r),'mismatch')
-    assert md.version('jcvi')==jcvi.__version__=='1.6.8'
+    assert md.version('jcvi')==jcvi.__version__=='1.6.9'
 
 def modules():
     for name,marker in [('formats.fasta','Remove irregular chars in FASTA seqs'),
@@ -37,7 +37,7 @@ def modules():
         ('compara.synteny','Get anchor list using single-linkage algorithm')]:
         out=run('jcvi',name,expected=(0,1))
         assert 'Traceback' not in out and marker in out
-    # New 1.6.8 selection/bytes paths: deterministic unit probes, no JGI token
+    # Earlier selection/bytes paths: deterministic unit probes, no JGI token
     # or network, and no claim of a complete external Gblocks installation.
     from jcvi.apps.fetch import classify_phytozome_file, select_phytozome_files
     def file(name):
@@ -105,6 +105,22 @@ def synteny():
     assert len(PdfReader('a.b.pdf').pages)==1
     assert all(f'a{i}' in Path('blocks.txt').read_text() for i in range(1,9))
 
+    # Distinguish the two streaming contracts: blastfilter retains the best HSP;
+    # liftover keeps the first one for a pair and only anchor-bearing scaffolds.
+    from jcvi.compara.blastfilter import main as blastfilter
+    from jcvi.compara.synteny import process_blast_for_liftover
+    from jcvi.formats.bed import Bed
+    def hit(q, s, score):
+        return f'{q}\t{s}\t90\t100\t1\t0\t1\t100\t1\t100\t1e-50\t{score}\n'
+    Path('stream.last').write_text(hit('a1','b1',50)+hit('a1','b1',100)+hit('a1','b8',60)+hit('a8','b8',80))
+    blastfilter(['stream.last','--qbed=a.bed','--sbed=b.bed','--no_strip_names'])
+    rows=[x.split() for x in Path('stream.last.filtered').read_text().splitlines()]
+    assert {(r[0],r[1],float(r[-1])) for r in rows}=={('a1','b1',100),('a8','b8',80)}
+    accepted,hits,n=process_blast_for_liftover('stream.last',Bed('a.bed').order,Bed('b.bed').order,
+        {('a1','b1')},{('chr1','chr1')},ostrip=False)
+    assert n==4 and accepted=={('a1','b1'):'50'}
+    assert hits[('chr1','chr1')].tolist()==[[0,0,50],[0,7,60],[7,7,80]]
+
 def helpers():
     Path('a.fa').write_text('>a\nACGTACGTACGTACGTACGTACGT\n')
     Path('b.fa').write_text('>b\nACGTTCGTACGTACGTACGTACGT\n')
@@ -142,6 +158,6 @@ def sam():
 
 modes={f.__name__:f for f in [identity,modules,fasta,bedtools,graphics,synteny,helpers,resources,sam]}
 mode=sys.argv[1]
-selected=['identity','modules','fasta'] if mode=='buildtime' else list(modes) if mode=='all' else [mode]
+selected=['identity','fasta'] if mode=='buildtime' else list(modes) if mode=='all' else [mode]
 for name in selected:
     print('stage='+name,flush=True); modes[name](); print(name+' PASS',flush=True)

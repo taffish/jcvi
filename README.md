@@ -5,16 +5,16 @@
 Package identity:
 
 - name / command / kind: `jcvi` / `taf-jcvi` / `tool`
-- version: `1.6.8-r1`; image: `ghcr.io/taffish/jcvi:1.6.8-r1`
+- version: `1.6.9-r1`; image: `ghcr.io/taffish/jcvi:1.6.9-r1`
 - packaging license: Apache-2.0; actual upstream LICENSE: BSD-2-Clause
-- upstream: [v1.6.8](https://github.com/tanghaibao/jcvi/tree/v1.6.8),
-  commit `c7d2de6f4b5e3269fb922dc1ee16191408cf381a`
+- upstream: [v1.6.9](https://github.com/tanghaibao/jcvi/tree/v1.6.9),
+  commit `687c5d3e62f9a60f040cf4a80b08d60dee5be6fd`
 
 ## What This App Packages
 
 The complete JCVI Python distribution is compiled from the checksum-pinned
-1.6.8 PyPI source archive, including its Cython extensions. This release updates
-Phytozome to the JGI REST API and fixes Gblocks stdout decoding on Python 3. Analysis algorithms are unchanged. A narrow ontology I/O guard
+1.6.9 PyPI source archive, including its Cython extensions. This release updates
+LAST query batching and streams BLAST filtering and anchor liftover. It also fixes heatmap legends, gene labels on rotated tracks, reversed karyotype spacing and TeX fallback. The package preserves the upstream analysis algorithms. A narrow ontology I/O guard
 rejects implicit GO/SO downloads when the explicitly prepared local OBO is missing.
 
 The wrapper retains the upstream dispatcher and automatic executable mode.
@@ -74,8 +74,8 @@ Install TAFFISH and a working Docker, Podman or native Linux Apptainer backend.
 After this release is published and available in the Hub Index:
 
 ```sh
-taf install jcvi 1.6.8-r1
-taf-jcvi-v1.6.8-r1 --version
+taf install jcvi 1.6.9-r1
+taf-jcvi-v1.6.9-r1 --version
 ```
 
 The examples below use the installed `taf-jcvi` default alias; use the versioned
@@ -88,7 +88,7 @@ taf-jcvi jcvi formats.fasta summary assembly.fa
 taf-jcvi jcvi formats.gff summary genes.gff3
 taf-jcvi jcvi compara.catalog ortholog species_a species_b --cpus=4 --notex
 taf-jcvi jcvi compara.synteny mcscan species_a.bed species_a.species_b.anchors --iter=1 -o blocks.txt
-taf-jcvi jcvi graphics.synteny blocks simple.bed layout --notex
+taf-jcvi jcvi graphics.synteny blocks merged.bed blocks.layout --notex
 taf-jcvi python analysis.py
 ```
 
@@ -96,6 +96,8 @@ Ortholog requires matching `species_a.cds` / `.bed` and `species_b.cds` / `.bed`
 Gene IDs, assembly and coordinates must match. See the
 [official MCscan tutorial](https://github.com/tanghaibao/jcvi/wiki/MCscan-(Python-version))
 for action-specific contracts.
+
+For a local synteny plot, `--genelabels=GENE_ID` draws that gene at size 6 by default; `--genelabelsize=0` hides it. The default label angle is 25 degrees. Setting `--genelabelrotation=0` places text on the track, where it can overlap a neighbouring gene; use the default angle or a larger figure for dense tracks. Landscape heatmap percentages are scaled per track, not across tracks.
 
 ## Backend Usage and Capability Matrix
 
@@ -302,7 +304,7 @@ These are site/storage overrides, not mandatory per-run app flags.
 
 ## Phytozome / JGI access
 
-JCVI 1.6.8 uses the official JGI Data Portal REST API. Downloads require your
+JCVI 1.6.9 uses the official JGI Data Portal REST API. Downloads require your
 own authorized JGI session token and may be subject to organism-specific data-use
 conditions. The app does not supply, persist or log credentials, accept terms for
 you, or guarantee hosted-service availability. Inspect
@@ -320,7 +322,7 @@ default Grabseeds method remains classic `canny`; SAM requires explicit selectio
 All shipped modules remain present, but presence is not complete functional
 coverage. Specialized Kent/BLAT, BWA/Bowtie2, minimap2, MUMmer, GMAP, CD-HIT,
 MUSCLE, Gblocks, RAxML, MAKER, PASA and AUGUSTUS integrations are not bundled or fully tested.
-The 1.6.8 Gblocks bytes/text decoding change is checked with controlled output;
+The earlier Gblocks bytes/text decoding change is checked with controlled output;
 this is not an execution of an external Gblocks installation. Debian main for the
 selected base does not provide that optional executable; no non-free binary or
 new external phylogeny stack has been added.
@@ -352,22 +354,7 @@ authentication is outside the declared local workflows.
 
 ## Testing
 
-The 2026-10-30 packaging validation used native ARM64 Docker/Podman and native
-amd64 Docker/Podman/Apptainer on the maintainer's xjp test host. The final images
-passed 416 exact smoke commands, 175 real-wrapper checks, 18 supplementary
-identity/sharing checks, 45 resource-lifecycle calls and 60 full-checkpoint model
-checks. Thirty-one concentrated resource-safety cases cover negative paths, races,
-interruption, recovery and idempotence. Prior-version results are not counted.
-
-ARM64 Docker's wrapper run used a private test HOME after Docker Desktop's
-file-sharing service failed with the whole account home mounted. The same real
-wrapper, image, explicit binds and assertions were retained; no app logic or
-engine settings were changed for this isolation. Earlier environment failures
-remain in the maintainer evidence, and this is not a claim that Docker Desktop
-itself was repaired. The final native images are 2,219,256,026 bytes (arm64) and
-2,354,425,891 bytes (amd64), uncompressed engine-reported sizes; the external
-2.6 GB SAM checkpoint is not part of either image. GitHub Action/GHCR and Hub
-Index acceptance remain post-publication steps.
+Native engine-reported sizes before registry compression are 2,354,386,483 bytes (amd64) and 2,219,147,002 bytes (arm64). On amd64, `/opt/jcvi` accounts for about 1.2 GiB including the eager CPU SAM runtime. The optional 2,564,550,879-byte model is external. The native Linux SIF is converted from the tested amd64 image archive.
 
 Smoke covers identity/dependency closure, module help, FASTA/BED, LAST → MCscan
 → PDF, five upstream clipping regressions, R/Graphviz/Wand, Samtools/EMBOSS/
@@ -375,7 +362,7 @@ BLAST+, immutable resource regressions and a tiny random-weight SAM CPU componen
 test including torchvision NMS. Full official ViT-H inference and actual model
 binds are separate wrapper tests; tiny random tensors are not evidence of trained
 model accuracy. Dockerfile uses only the light
-identity/help/FASTA subset. Full exact commands require fresh offline containers,
+identity/FASTA subset. Full exact commands require fresh offline containers,
 read-only proxies and a same-OCI native Linux SIF; actual wrapper binds are
 verified separately. These are packaging checks, not scientific qualification
 on production datasets.
@@ -386,13 +373,13 @@ for real data; a successful run does not establish seed-outline or model accurac
 
 ## License and Citation
 
-TAFFISH packaging and original helpers: Apache-2.0. Actual upstream 1.6.8 LICENSE
+TAFFISH packaging and original helpers: Apache-2.0. Actual upstream 1.6.9 LICENSE
 is BSD-2-Clause; upstream pyproject metadata says BSD-3-Clause. The actual text
 is preserved in [the source-tree notice](docker/licenses/jcvi-BSD-2-Clause.txt)
 alongside the unmodified upstream graphics test, and in the image; the metadata
 discrepancy is recorded, not silently replaced. Dependencies
 retain their own notices. Cite [Tang et al., JCVI, iMeta 2024](https://doi.org/10.1002/imt2.211);
-the original checksum-pinned CITATION.cff is included.
+the original checksum-pinned CITATION.cff is included. Its version field still says 1.6.8 at this upstream tag; package identity is determined by the pinned source and installed version.
 
 SAM code and model are Apache-2.0, not subject to the separate SA-1B dataset
 license. The pinned SAM LICENSE and README are preserved under `/opt/jcvi/share/`.

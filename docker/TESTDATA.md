@@ -19,3 +19,5 @@ inventory、合法根链接/链式链接、悬空/循环根拒绝、成员链接
 `a7bf3b02f3ebf1267aba913ff637d9a2d5c33d3173bb679e46d9f338c26f262e`）
 通过显式资源安装器在镜像外校验；完整 CPU Grabseeds 推理、实际只读共享和文件输出在
 维护者私有目录经真实 wrapper 单独验证。模型不是 SA-1B 数据集；代码和模型保持 Apache-2.0。
+
+JCVI 1.6.9 的 `synteny` 另核对重复 HSP 的两种实际约定：blastfilter 选最高分并按 C-score 过滤，liftover 保留首条。它们属于 release smoke，不在 Dockerfile 执行。

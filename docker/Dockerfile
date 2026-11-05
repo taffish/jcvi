@@ -1,11 +1,11 @@
 FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS builder
 
-ARG JCVI_VERSION=1.6.8
-ARG JCVI_COMMIT=c7d2de6f4b5e3269fb922dc1ee16191408cf381a
-ARG JCVI_SDIST_URL=https://files.pythonhosted.org/packages/2c/e1/5c497c50c2e4f704529edec667f2e0f55592b6be779de50c329be1a7115e/jcvi-1.6.8.tar.gz
-ARG JCVI_SDIST_SHA256=90abb6d2da918ba11eaaa08629fabb504ffa0830ad08769303cba4df82d861df
-ARG JCVI_CITATION_URL=https://raw.githubusercontent.com/tanghaibao/jcvi/v1.6.8/CITATION.cff
-ARG JCVI_CITATION_SHA256=a85d2fe0e9b523a72a5e5b7b86649ec8fa9310afd69ee22e2616e28d364767eb
+ARG JCVI_VERSION=1.6.9
+ARG JCVI_COMMIT=687c5d3e62f9a60f040cf4a80b08d60dee5be6fd
+ARG JCVI_SDIST_URL=https://files.pythonhosted.org/packages/a8/3f/7291ed80558c17a80170f374a80ab9e66d5a9fac10875c077966b6613b06/jcvi-1.6.9.tar.gz
+ARG JCVI_SDIST_SHA256=9f84f18b5379a5e13131dad0e0fafd80706c44c3bc26af6279a7bb1ab47cd769
+ARG JCVI_CITATION_URL=https://raw.githubusercontent.com/tanghaibao/jcvi/v1.6.9/CITATION.cff
+ARG JCVI_CITATION_SHA256=ebfa01be89f9f097d0ec5f171b824742a21da7ce5bb567eef678320647195cb2
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -45,7 +45,7 @@ RUN --mount=type=cache,target=/root/.cache/pip set -eux; \
     tar -xzf jcvi.tar.gz -C /tmp/jcvi-src --strip-components=1; \
     python -m venv --copies /opt/jcvi/venv; \
     /opt/jcvi/venv/bin/python -m pip install --root-user-action=ignore --report /tmp/jcvi-install-report.json ./jcvi.tar.gz; \
-    /opt/jcvi/venv/bin/python -c 'import importlib.metadata as md; assert md.version("jcvi") == "1.6.8"'; \
+    /opt/jcvi/venv/bin/python -c 'import importlib.metadata as md; assert md.version("jcvi") == "1.6.9"'; \
     mkdir -p \
         /opt/jcvi/share/doc/jcvi \
         /opt/jcvi/share/licenses/jcvi \
@@ -172,7 +172,7 @@ RUN set -eux; \
 
 COPY --from=builder /opt/jcvi /opt/jcvi
 COPY --chmod=0755 docker/jcvi-resources.py /usr/local/bin/jcvi-resources
-COPY src/resource_validation.py /opt/jcvi/share/resource_validation.py
+COPY --chmod=0644 src/resource_validation.py /opt/jcvi/share/resource_validation.py
 COPY docker/apply-ontology-guard.py /opt/jcvi/share/doc/jcvi/apply-ontology-guard.py
 
 RUN set -eux; \
@@ -193,4 +193,4 @@ WORKDIR /work
 # This does not change the process UID, grant permissions or supply credentials.
 ENV LOGNAME=taffish USER=taffish
 ENV TAFFISH_ENV=TAFFISH
-ENV TAFFISH_NAME=jcvi
+ENV TAFFISH_NAME=jcvi TAFFISH_VERSION=1.6.9 TAFFISH_RELEASE=1

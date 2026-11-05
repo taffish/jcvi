@@ -57,5 +57,5 @@ taf_jcvi_mount() {
         printf -- '--volume=%s:%s' "$taf_jcvi_path" "$taf_jcvi_target"
     fi
 }
-<taf-app:container:ghcr.io/taffish/jcvi:1.6.8-r1$@[docker/podman: "$(taf_jcvi_mount docker)"][docker: --user=$(id -u):$(id -g)][podman: --userns=keep-id --user=$(id -u):$(id -g)][apptainer: "$(taf_jcvi_mount apptainer)"]>
+<taf-app:container:ghcr.io/taffish/jcvi:1.6.9-r1$@[docker/podman: "$(taf_jcvi_mount docker)"][docker: --user=$(id -u):$(id -g)][podman: --userns=keep-id --user=$(id -u):$(id -g)][apptainer: "$(taf_jcvi_mount apptainer)"]>
 jcvi ::*ARGV*::
